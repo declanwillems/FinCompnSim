@@ -101,14 +101,43 @@ plot_IVs <- plot_IV_surface(options_filtered, ticker_choices)
 # Part 2
 # Build GBM Model
 
-GBM_sim <- function(S0, K, r, t, sigma, N, M){
+GBM_sim <- function(S0, mu, r, t, sigma, N, M){
   
   
   dt <- t / N
   
   time_vec <- seq(0, t, length = N + 1)
   
+  stock_paths <- matrix(0, nrow = N + 1, ncol = M)
+  
+  stock_paths[1, ] <- S0
+  
+  set.seed(1730)
+  
+  for (i in 2:(N + 1)){
+    
+    
+    Z <- rnorm(M)
+    
+    stock_paths[i, ] <- stock_paths[i - 1, ] * exp((mu - 0.5 * sigma^2) * dt + sigma * sqrt(dt) * Z)
+  }
+  return(list(time = time_vec, stock_paths = stock_paths))
+}
+
+
+S0 <- 50
+mu <- 0.05
+r <- 0.05
+t <- 1
+sigma <- 0.3
+N <- 252
+M <- 100
+
+GBM_paths <- GBM_sim(S0, mu, r, t, sigma, N, M)
+
+
+Jump_diff <- function(S0, mu, r, t, sigma, N, M){
+  
   
   
 }
-
