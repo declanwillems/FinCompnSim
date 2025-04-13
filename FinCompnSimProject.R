@@ -136,8 +136,65 @@ M <- 100
 GBM_paths <- GBM_sim(S0, mu, r, t, sigma, N, M)
 
 
-Jump_diff <- function(S0, mu, r, t, sigma, N, M){
+Jump_diff <- function(S0, mu, r, t, sigma, N, M, a, b, lambda){
   
+  #x_gbm <- x_jd <- matrix(NA, ncol = N + 1, nrow = M)
   
+  x_jd <- matrix(NA, ncol = N + 1, nrow = M)
+  
+  #x_gbm[, 1] <- log(S0)
+  
+  x_jd[, 1] <- log(S0)
+  
+  dt <- t / N
+  
+  sqdt <- sqrt(dt)
+  
+  set.seed(1730)
+  
+  for (i in 1:N){
+    
+    
+    Z <- matrix(rnorm(M), ncol = 1)
+    
+    # Poisson for jump diff.
+    NN <- matrix(rpois(M, lambda * dt), ncol = 1)
+    
+    
+    Z_2 <- matrix(rnorm(M), ncol = 1)
+    
+    MM <- a * NN + b * sqrt(NN) * Z_2
+    
+    x_jd[, i + 1] <- x_jd[, i] + (mu - 0.5 * sigma^2) * dt + sigma * sqdt * Z + MM
+    
+    #x_gbm[, i + 1] <- x_gbm[, i] + (mu - 0.5 * sigma^2) * dt + sigma * sqdt * z
+    
+    
+  }
+  
+  #s_gbm <- exp(x_gbm)
+  s_jd <- exp(x_jd)
+  
+  output <- list( "JD" = s_jd)
+  
+  return(output)
   
 }
+
+S0 <- 50
+mu <- 0.05
+r <- 0.05
+t <- 1
+sigma <- 0.3
+N <- 252
+M <- 100
+
+# Frequency of jumps
+lambda <- 4
+
+# Jump process parameters a & b
+a <- -0.05
+b <- 0.1
+
+
+jump_diff_result <- Jump_diff(S0, mu, r, t, sigma, N, M, a, b, lambda)
