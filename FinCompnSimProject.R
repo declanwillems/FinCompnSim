@@ -46,6 +46,46 @@ stock_filtered <- na.omit(stock_filtered)
 options_filtered <- na.omit(options_filtered)
 
 
+ticker_calibration <- function(tickers, stock_data){
+  
+  ticker_data <- stock_data %>%
+                filter(Ticker == tickers) %>%
+                arrange(Date)
+  
+  
+  ticker_data$Log.Return <- c(NA, diff(log(ticker_data$Close)))
+  
+  ticker_data <- na.omit(ticker_data)
+  
+  mu_daily <- mean(ticker_data$Log.Return)
+  
+  sigma_daily <- sd(ticker_data$Log.Return)
+  
+  mu_annual <- 252 * mu_daily
+  sigma_annual <- sqrt(252) * sigma_daily
+  
+  
+  return(data.frame(
+    
+    Ticker = tickers,
+    mu_daily = mu_daily,
+    mu_annual = mu_annual,
+    sigma_daily = sigma_daily,
+    sigma_annual = sigma_annual
+  ))
+  
+}
+
+
+# Loop through for all tickers to calibrate
+
+calibrated_values <- do.call(rbind, lapply(ticker_choices, function(ticker) {
+  
+  ticker_calibration(ticker, stock_filtered)
+}))
+
+head(calibrated_values)
+
 # Implied Volatility Surfaces from observed option prices for all stocks
 
 
@@ -197,4 +237,13 @@ a <- -0.05
 b <- 0.1
 
 
+
+# This jump diffusion model does not account for correlations between assets
+# Maybe we should build a correlation matrix and pass that in for each equity too
+# S0 should be update to be the first stock price for each equity right?
+
 jump_diff_result <- Jump_diff(S0, mu, r, t, sigma, N, M, a, b, lambda)
+
+
+# Simulate asset paths utilizing Monte Carlo methods
+
