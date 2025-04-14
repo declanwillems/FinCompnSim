@@ -10,7 +10,7 @@ library("plotly")
 # Package to connect points in scatter plot to make a surface
 # Utilized in part 1 for IV plot
 library("akima")
-
+library("dplyr")
 
 setwd("C:\\Users\\willed3\\OneDrive - Rensselaer Polytechnic Institute\\Documents\\Spring 2025\\Financial Computation & Simulation\\Project\\Data")
 
@@ -88,6 +88,7 @@ head(calibrated_values)
 
 # Implied Volatility Surfaces from observed option prices for all stocks
 
+stock_filtered$Date <- as.Date(stock_filtered$Date)
 
 options_filtered$Trade.Date <- as.Date(options_filtered$Trade.Date)
 
@@ -136,6 +137,63 @@ plot_IV_surface <- function(options_data, tickers){
 
 
 plot_IVs <- plot_IV_surface(options_filtered, ticker_choices)
+
+
+
+# Model to back out the prices of the options data
+# Black-Scholes Model
+# Need another model for comparison with American option pricing
+option_price_backout <- function(stock_data, options_data, r){
+  
+  # Black-Scholes model to back out price from options data
+  
+  
+  
+  # Merge stock data and options data inside loop as to get S0 to be the close price
+  # on the given options trade date
+  
+  merge_datasets <- left_join(options_data, stock_data,
+                              by = c("Trade.Date" = "Date", "Stock.Ticker" = "Ticker"))
+  
+  S0 <- merge_datasets$Close
+  
+  K <- merge_datasets$Strike
+  
+  t <- as.Date(merge_datasets$Trade.Date)
+  T <- as.Date(merge_datasets$Expiry.Date)
+  
+  sigma <- merge_datasets$Avg.IV
+  
+  # Calculate yearly time diff
+  time_diff <- as.numeric(T - t) / 365
+  
+  d1 <- (1 / (sigma * sqrt(time_diff))) * (log(S0 / K) + (r + 0.5 * sigma^2) * (time_diff))
+  
+  d2 <- d1 - sigma * sqrt(time_diff)
+  
+  options_data$Call_Price <- S0 * pnorm(d1) - K * exp(-r * time_diff) * pnorm(d2)
+  
+  return(options_data)
+  
+}
+
+rf <- 0.045
+
+call_price_test <- option_price_backout(stock_filtered, options_filtered, rf)
+
+
+# Build pricing model for American options
+# Above function only works for Euro options as per Black-Scholes
+
+
+binom_lattice_pricing <- function(stock_data, option_data, rf){
+  
+  
+  
+  
+}
+
+
 
 
 # Part 2
@@ -245,5 +303,42 @@ b <- 0.1
 jump_diff_result <- Jump_diff(S0, mu, r, t, sigma, N, M, a, b, lambda)
 
 
-# Simulate asset paths utilizing Monte Carlo methods
+# ------------------------------------------------------------------------------
+# Simulate option prices using MC/GBM
+
+call_price_MC <- function(S0, K, sigma, mu, t, N, M){
+  
+  set.seed(1730)
+  
+  Z <- rnorm(M)
+  
+  S_t <- S0 * exp((r - 0.5 * sigma^2) * t + sigma * sqrt(t) * Z)
+  
+  payoff <- pmax(S_t - K, 0)
+  
+  opt_price <- exp(-r * t) * mean(payoff)
+  
+  return(opt_price)
+  
+  
+}
+
+
+call_payoff <- function(ST, K){
+  
+  payoff <- pmax(ST - K, 0)
+  return(payoff)
+}
+
+
+K <- 60
+
+call_test <- call_price_MC(S0, K, sigma, mu, t, N, M)
+
+
+
+# Calibrate to specific parameters
+# Number of jumps, jump length, etc.
+# Try initial model using the optim function/package in R
+
 
