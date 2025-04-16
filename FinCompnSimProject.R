@@ -342,3 +342,11 @@ call_test <- call_price_MC(S0, K, sigma, mu, t, N, M)
 # Try initial model using the optim function/package in R
 
 
+calibration_price_errors <- function(S0, options_data, rf){
+  
+  
+  
+  
+}
+
+
