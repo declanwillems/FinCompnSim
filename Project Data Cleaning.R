@@ -3,6 +3,7 @@
 
 # Data initialization, cleaning, and IV surface plots
 
+rm(list = ls())
 
 library("plotly")
 # Package to connect points in scatter plot to make a surface
@@ -40,8 +41,6 @@ stock_filter <- stock_data[stock_data$Ticker %in% ticker_choices, ]
 options_woPrice_filtered <- option_wo_price[option_wo_price$Stock.Ticker %in% ticker_choices, ]
 options_wPrice_filtered <- option_w_prices[option_w_prices$Stock.Ticker %in% ticker_choices, ]
 
-#options_wPrice_filter$Avg.IV <- options_woPrice_filter$Avg.IV
-
 
 
 # stock_filtered <- stock_data[stock_data$Ticker %in% ticker_choices, ]
@@ -78,7 +77,7 @@ options_wPrice_filtered <- option_w_prices[option_w_prices$Stock.Ticker %in% tic
 # 
 
 
-
+# Daily and annual mean and std dev of each desired ticker
 ticker_calibration <- function(tickers, stock_data){
   
   ticker_data <- stock_data %>%
@@ -119,8 +118,7 @@ calibrated_values <- do.call(rbind, lapply(ticker_choices, function(ticker) {
 
 head(calibrated_values)
 
-# Implied Volatility Surfaces from observed option prices for all stocks
-
+# ENsuring data is in Date format
 stock_filter$Date <- as.Date(stock_filter$Date)
 
 options_woPrice_filtered$Trade.Date <- as.Date(options_woPrice_filtered$Trade.Date)
@@ -129,7 +127,45 @@ options_woPrice_filtered$Expiry.Date <- as.Date(options_woPrice_filtered$Expiry.
 
 options_woPrice_filtered$TTM <- as.numeric(difftime(options_woPrice_filtered$Expiry.Date, options_woPrice_filtered$Trade.Date, units = "days")) / 365
 
+options_wPrice_filtered$Trade.Date <- as.Date(options_wPrice_filtered$Trade.Date)
 
+options_wPrice_filtered$Expiry.Date <- as.Date(options_wPrice_filtered$Expiry.Date)
+
+options_wPrice_filtered$TTM <- as.numeric(difftime(options_wPrice_filtered$Expiry.Date, options_wPrice_filtered$Trade.Date, units = "days")) / 365
+
+
+ticker_check <- unique(options_wPrice_filtered$Stock.Ticker)
+
+ticker_check_stocks <- unique(stock_filter$Ticker)
+
+# merged_stock_n_options <- left_join(options_wPrice_filtered, stock_filter,
+#                                     by = c("Trade.Date" = "Date", "Stock.Ticker" = "Ticker"))
+
+merged_stock_n_options <- options_wPrice_filtered %>%
+  left_join(
+    stock_filter %>% select(Date, Ticker, Close, Volume),
+    by = c("Trade.Date" = "Date", "Stock.Ticker" = "Ticker")
+  )
+
+# Dropping useless column
+
+merged_stock_n_options <- merged_stock_n_options %>%
+  select(-starts_with("X."))
+
+# Ensuring stock ticker matches up with its true date and close price
+
+merged_stock_n_options %>%
+  arrange(Stock.Ticker, Trade.Date) %>%
+  head(10)
+
+merged_tickers <- unique(merged_stock_n_options$Stock.Ticker)
+
+
+print(ticker_check_stocks)
+
+print(merged_tickers)
+
+# Implied Volatility Surfaces from observed option prices for all stocks
 
 plot_IV_surface <- function(options_data, tickers){
   
