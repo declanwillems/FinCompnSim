@@ -12,11 +12,11 @@ library("dplyr")
 
 setwd("C:\\Users\\willed3\\OneDrive - Rensselaer Polytechnic Institute\\Documents\\Spring 2025\\Financial Computation & Simulation\\Project\\Data")
 
-
 stock_data <- read.csv("act_stocks.csv")
 
-option_data <- read.csv("act_options.csv")
+option_wo_price <- read.csv("act_options.csv")
 
+option_w_prices <- read.csv("act_options_prices.csv")
 
 unique_tickers <- unique(stock_data$Ticker)
 
@@ -35,13 +35,48 @@ print(unique_tickers)
 ticker_choices <- c("AAPL", "AEP", "AEO", "ACN", "AFL", "ADM")
 
 
-stock_filtered <- stock_data[stock_data$Ticker %in% ticker_choices, ]
+stock_filter <- stock_data[stock_data$Ticker %in% ticker_choices, ]
 
-options_filtered <- option_data[option_data$Stock.Ticker %in% ticker_choices, ]
+options_woPrice_filtered <- option_wo_price[option_wo_price$Stock.Ticker %in% ticker_choices, ]
+options_wPrice_filtered <- option_w_prices[option_w_prices$Stock.Ticker %in% ticker_choices, ]
+
+#options_wPrice_filter$Avg.IV <- options_woPrice_filter$Avg.IV
 
 
-stock_filtered <- na.omit(stock_filtered)
-options_filtered <- na.omit(options_filtered)
+
+# stock_filtered <- stock_data[stock_data$Ticker %in% ticker_choices, ]
+# 
+# #options_filtered <- option_data[option_data$Stock.Ticker %in% ticker_choices, ]
+# 
+# options_filtered <- option_data_with_prices[option_data_with_prices$Stock.Ticker %in% ticker_choices, ]
+# 
+# options_without_prices_filtered <- option_data[option_data$Stock.Ticker %in% ticker_choices, ]
+# 
+# options_filtered$Avg.IV <- options_without_prices_filtered$Avg.IV
+
+# merge_n_filter <- function(stock_data, option_w_price, option_wo_price, ticker_choices){
+#   
+#   
+#   stock_filter <- stock_data[stock_data$Ticker %in% ticker_choices, ]
+#   
+#   options_woPrice_filter <- option_wo_price[option_wo_price$Ticker %in% ticker_choices, ]
+#   
+#   options_wPrice_filter <- option_w_price[option_w_price %in% ticker_choices, ]
+#   
+#   options_wPrice_filter$Avg.IV <- option_woPrice_filter$Avg.IV
+#   
+#   
+#   stock_filtered <- na.omit(stock_filtered)
+#   options_filtered <- na.omit(options_filtered)
+#   
+#   return(stock_filter = stock_filter, options_filter = options_filter)
+#   
+# }
+# 
+# 
+# filted_results <- merge_n_filter(stock_data, option_data_with_prices, option_data, ticker_choices)
+# 
+
 
 
 ticker_calibration <- function(tickers, stock_data){
@@ -79,20 +114,21 @@ ticker_calibration <- function(tickers, stock_data){
 
 calibrated_values <- do.call(rbind, lapply(ticker_choices, function(ticker) {
   
-  ticker_calibration(ticker, stock_filtered)
+  ticker_calibration(ticker, stock_filter)
 }))
 
 head(calibrated_values)
 
 # Implied Volatility Surfaces from observed option prices for all stocks
 
-stock_filtered$Date <- as.Date(stock_filtered$Date)
+stock_filter$Date <- as.Date(stock_filter$Date)
 
-options_filtered$Trade.Date <- as.Date(options_filtered$Trade.Date)
+options_woPrice_filtered$Trade.Date <- as.Date(options_woPrice_filtered$Trade.Date)
 
-options_filtered$Expiry.Date <- as.Date(options_filtered$Expiry.Date)
+options_woPrice_filtered$Expiry.Date <- as.Date(options_woPrice_filtered$Expiry.Date)
 
-options_filtered$TTM <- as.numeric(difftime(options_filtered$Expiry.Date, options_filtered$Trade.Date, units = "days")) / 365
+options_woPrice_filtered$TTM <- as.numeric(difftime(options_woPrice_filtered$Expiry.Date, options_woPrice_filtered$Trade.Date, units = "days")) / 365
+
 
 
 plot_IV_surface <- function(options_data, tickers){
