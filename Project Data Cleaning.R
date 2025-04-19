@@ -165,6 +165,53 @@ print(ticker_check_stocks)
 
 print(merged_tickers)
 
+# Log returns for summary stat calcs
+stock_filter <- stock_filter %>%
+  arrange(Ticker, Date) %>%
+  group_by(Ticker) %>%
+  mutate(LogReturn = log(Close / lag(Close))) %>%
+  ungroup()
+
+# Summary stats for each of the firms
+stock_summary <- stock_filter %>%
+  dplyr::group_by(Ticker) %>%
+  dplyr::summarise(
+    StartDate   = min(Date, na.rm=TRUE),
+    EndDate     = max(Date, na.rm=TRUE),
+    MeanClose   = mean(Close, na.rm=TRUE),
+    MedianClose = median(Close, na.rm=TRUE),
+    MinClose    = min(Close, na.rm=TRUE),
+    MaxClose    = max(Close, na.rm=TRUE),
+    AvgDailyRet  = mean(LogReturn, na.rm = TRUE),
+    AnnualRet    = AvgDailyRet * 252,
+    DailyVol     = sd(LogReturn, na.rm = TRUE),
+    AnnualVol    = DailyVol * sqrt(252),
+    TotalReturn = last(Close) / first(Close) - 1,
+    AvgVolume   = mean(Volume, na.rm=TRUE),
+    .groups = "drop"
+  )
+
+print(stock_summary)
+
+
+# Summarize options
+options_summary <- options_woPrice_filtered %>%
+  # ensure it’s the dplyr grouping
+  dplyr::group_by(Stock.Ticker) %>%
+  dplyr::summarise(
+    NQuotes         = dplyr::n(),              # count of rows per group
+    AvgIV           = mean(Avg.IV, na.rm = TRUE),
+    MinIV           = min(Avg.IV, na.rm = TRUE),
+    MaxIV           = max(Avg.IV, na.rm = TRUE),
+    AvgTTM          = mean(TTM, na.rm = TRUE),
+    AvgOpenInterest = mean(Open.Interest, na.rm = TRUE),
+    AvgOptVolume    = mean(Volume, na.rm = TRUE),
+    .groups = "drop"                           # drop grouping afterwards
+  )
+
+print(options_summary)
+
+
 # Implied Volatility Surfaces from observed option prices for all stocks
 
 plot_IV_surface <- function(options_data, tickers){
@@ -206,7 +253,7 @@ plot_IV_surface <- function(options_data, tickers){
 }
 
 
-plot_IVs <- plot_IV_surface(options_filtered, ticker_choices)
+plot_IVs <- plot_IV_surface(options_woPrice_filtered, ticker_choices)
 
 
 
@@ -249,7 +296,7 @@ option_price_backout <- function(stock_data, options_data, r){
 
 rf <- 0.045
 
-call_price_test <- option_price_backout(stock_filtered, options_filtered, rf)
+call_price_test <- option_price_backout(stock_filtered, options_woPrice_filtered, rf)
 
 
 # Build pricing model for American options
