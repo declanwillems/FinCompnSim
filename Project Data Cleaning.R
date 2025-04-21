@@ -11,9 +11,60 @@ library("plotly")
 library("akima")
 library("dplyr")
 
-setwd("C:\\Users\\willed3\\OneDrive - Rensselaer Polytechnic Institute\\Documents\\Spring 2025\\Financial Computation & Simulation\\Project\\Data")
+setwd("C:/Users/jacob/OneDrive/Documents/~RPI QFRA/2025 Spring Semester/Financial Computation and Simulation/Project")
 
 stock_data <- read.csv("act_stocks.csv")
+
+# Stock data extracted
+# AAPL
+aapl_price= stock_data %>%
+  filter(Ticker=="AAPL") %>%
+  arrange(Date) %>%
+  mutate(
+    return= Close
+  )
+# AEP
+aep_price= stock_data %>%
+  filter(Ticker=="AEP") %>%
+  arrange(Date) %>%
+  mutate(
+    return= Close
+  )
+# AEO
+aeo_price= stock_data %>%
+  filter(Ticker=="AEO") %>%
+  arrange(Date) %>%
+  mutate(
+    return= Close
+  )
+# ACN
+acn_price= stock_data %>%
+  filter(Ticker=="ACN") %>%
+  arrange(Date) %>%
+  mutate(
+    return= Close
+  )
+# AFL
+afl_price= stock_data %>%
+  filter(Ticker=="AFL") %>%
+  arrange(Date) %>%
+  mutate(
+    return= Close
+  )
+# ADM
+adm_price= stock_data %>%
+  filter(Ticker=="ADM") %>%
+  arrange(Date) %>%
+  mutate(
+    return= Close
+  )
+
+head(aapl_price)
+head(aep_price)
+head(aeo_price)
+head(acn_price)
+head(afl_price)
+head(adm_price)
 
 option_wo_price <- read.csv("act_options.csv")
 
@@ -299,16 +350,67 @@ rf <- 0.045
 call_price_test <- option_price_backout(stock_filtered, options_woPrice_filtered, rf)
 
 
-# Build pricing model for American options
+# Build pricing model for American options use an implicit or explicit method
 # Above function only works for Euro options as per Black-Scholes
 
-
-binom_lattice_pricing <- function(stock_data, option_data, rf){
+option_pricing= function(S0,K,r,t,sigma,N=200,call=1,euro=0,crr=1){
+  dt= t/N
+  # Determine payoff function:
+  if (call == 1){
+    h= function(S){
+      h= pmax(S - K,0) # Call payoff
+    }
+  }
+  else {
+    h= function(S){
+      h= pmax(K - S,0) # Put payoff
+    }
+  }
   
+  # Euro vs. Amer:
+  if (euro == 1){
+    A= 0
+  }
+  else{
+    A= 1
+  }
+  # Determine parameterization method:
+  if (crr == 1){
+    u= exp(sigma*sqrt(dt))
+    d= 1/u
+    p= (exp(r*dt) - d) / (u - d)
+  }
+  else{ # JRR Model
+    u= exp((r-sigma*sigma/2)*dt + sigma*sqrt(dt))
+    d= exp((r-sigma*sigma/2)*dt - sigma*sqrt(dt))
+    p= 1/2
+  }
   
+  # initialize the vector:
+  vec= rep(NA,length=(2*N+1))
   
+  # Populate the terminal payoffs:
+  NN= length(vec)
+  nu= matrix(seq(N,0),ncol=1)
+  nd= matrix(seq(0,N),ncol=1)
+  vec[seq(1,NN,by=2)]= h(S0 * u ^ nu * d ^ nd)
+  disc= exp(-r*dt)
+  q= 1 - p
+  dp= disc*p
+  dq= disc*q
   
+  # Solve by backward induction:
+  for (i in 1:N){
+    opts= vec[seq(i,NN-i+1,by=2)]
+    nu= seq(N-i,0)
+    nd= seq(0,N-i)
+    # Intrinsic value of the option (Multiply by A = 1 if American; A=0 for European)
+    intrin= h(S0 * u^nu * d^nd) * A
+    
+    vec[seq(1+i,NN-i,by=2)]= pmax((dp*opts[1:(length(opts)-1)] +
+                                       dq*opts[2:(length(opts))]),
+                                    intrin)
+  }
+  x= vec[N+1]
+  return(x)
 }
-
-
-
