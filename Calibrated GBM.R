@@ -107,7 +107,7 @@ option_chain_real= option_w_prices %>%
   mutate(
     Expiration= Expiry.Date,
     Trade.Date= Trade.Date,
-    TTM= difftime(Expiry.Date, Trade.Date,units='days'),
+    TTM= as.numeric(difftime(Expiry.Date, Trade.Date,units='days')),
     Strike= Strike,
     Option.Price= Last.Trade.Price,
   ) %>%
@@ -115,27 +115,20 @@ option_chain_real= option_w_prices %>%
 
 target_date= as.Date("2021-01-08")
 
-thirty_day_option_chain= option_chain_real %>%
+option_chain_of_interest= option_chain_real %>%
   filter(Expiration==target_date) %>%
   mutate(
-    TTM= "30 days"
+    Expiration= "2021-01-08"
   )
-avg_strike_chain= thirty_day_option_chain %>%
-  group_by(Strike) %>%
-  summarise(
-    avg_price= mean(Option.Price, na.rm=TRUE)
-  )
-aapl_price= aapl_price %>%
-  mutate(as.Date(Date))
+
 
 # Filter for aapl closing price to get implied vol on these contracts
 closing_price= aapl_price %>%
-  filter(Date==(target_date)-30) %>%
+  filter(Date==(target_date)-44) %>% # This is the latest TTM
   pull(Close)
 closing_price
 
 # Price euro calls and plot price surface and compare BSM versus simulated
-strike_sim= c(avg_strike_chain$Strike)
 
 BSM_call= function(S0,K,r,sigma,T){
   d1= (log(S0/K)+(r+0.5*sigma^2)*t)/(sigma*sqrt(t))
@@ -157,44 +150,16 @@ euro_call_sim=function(S0,K,r,sigma,t,nsteps,M,seed=100){
   # CI= c(est_price-z*sd_est_price/sqrt(N),est_price+2*sd_est_price/sqrt(N))
   return(est_price)
 }
-test= euro_call_sim(S0=closing_price,K=K,r=0.025, sigma=sigma,t=1/12,nsteps=30,M=10000)
-
-option_chain= data.frame(
-  Strike= strike_sim,
-  BSM.Price= NA,
-  Simulated.Price= NA
-)
 
 # Loop through strikes and store results for BSM
-for (i in seq_along(strike_sim)){
-  K= strike_sim[i]
-  option_chain$BSM.Price[i]= round(BSM_call(S0=closing_price,K=K,r=0.025,sigma=my.stats[2,],T=1/12),2)
-  option_chain$Simulated.Price[i]= round(euro_call_sim(S0=closing_price,K=K,r=0.025, sigma=my.stats[2,]-0.5,t=1/12,nsteps=50,M=10000),2)
+for (i in 1:seq_along(as.numeric(nrow(option_chain_of_interest)))){
+  option_chain_of_interest$Euro.Price[i]= euro_call_sim(
+    S0= 113.8711,
+    K= option_chain_of_interest$Strike[i],
+    r= 0.025,
+    sigma= 0.3249201,
+    t= (option_chain_of_interest$TTM/30)/12,
+    nsteps=252,
+    M= 10000
+  )
 }
-
-# Stack Overflow helped here
-wide_df= data.frame(
-  strike = strike_sim,
-  Market      = option_chain$BSM.Price,
-  Simulation  = option_chain$Simulated.Price
-)
-
-
-long_df= pivot_longer(wide_df, -strike, names_to = "chain", values_to = "price")
-
-
-
-# Plot the option price surfaces
-ggplot(long_df, aes(x=strike, y=price,color=chain))+
-  geom_line(size=1)+
-  geom_point(size=2,alpha=0.7)+
-  labs(
-    title= "Option Price Chains: Black-Scholes vs. Simulation (-50 BPS)",
-    x="Strike",
-    y="Option Price",
-    color="Chain"
-  )+
-  theme_minimal(base_size=14)
-
-mse= mean( (wide_df$Market - wide_df$Simulation)^2 )
-print(mse)
