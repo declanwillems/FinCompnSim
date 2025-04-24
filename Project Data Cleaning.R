@@ -176,18 +176,18 @@ stock_filter <- stock_filter %>%
 stock_summary <- stock_filter %>%
   dplyr::group_by(Ticker) %>%
   dplyr::summarise(
-    StartDate   = min(Date, na.rm=TRUE),
-    EndDate     = max(Date, na.rm=TRUE),
-    MeanClose   = mean(Close, na.rm=TRUE),
+    StartDate = min(Date, na.rm=TRUE),
+    EndDate = max(Date, na.rm=TRUE),
+    MeanClose = mean(Close, na.rm=TRUE),
     MedianClose = median(Close, na.rm=TRUE),
-    MinClose    = min(Close, na.rm=TRUE),
-    MaxClose    = max(Close, na.rm=TRUE),
-    AvgDailyRet  = mean(LogReturn, na.rm = TRUE),
-    AnnualRet    = AvgDailyRet * 252,
-    DailyVol     = sd(LogReturn, na.rm = TRUE),
-    AnnualVol    = DailyVol * sqrt(252),
+    MinClose = min(Close, na.rm=TRUE),
+    MaxClose = max(Close, na.rm=TRUE),
+    AvgDailyRet = mean(LogReturn, na.rm = TRUE),
+    AnnualRet = AvgDailyRet * 252,
+    DailyVol = sd(LogReturn, na.rm = TRUE),
+    AnnualVol = DailyVol * sqrt(252),
     TotalReturn = last(Close) / first(Close) - 1,
-    AvgVolume   = mean(Volume, na.rm=TRUE),
+    AvgVolume = mean(Volume, na.rm=TRUE),
     .groups = "drop"
   )
 
@@ -199,11 +199,11 @@ options_summary <- options_woPrice_filtered %>%
   # ensure it’s the dplyr grouping
   dplyr::group_by(Stock.Ticker) %>%
   dplyr::summarise(
-    NQuotes         = dplyr::n(),              # count of rows per group
-    AvgIV           = mean(Avg.IV, na.rm = TRUE),
-    MinIV           = min(Avg.IV, na.rm = TRUE),
-    MaxIV           = max(Avg.IV, na.rm = TRUE),
-    AvgTTM          = mean(TTM, na.rm = TRUE),
+    NQuotes = dplyr::n(),              # count of rows per group
+    AvgIV = mean(Avg.IV, na.rm = TRUE),
+    MinIV = min(Avg.IV, na.rm = TRUE),
+    MaxIV = max(Avg.IV, na.rm = TRUE),
+    AvgTTM  = mean(TTM, na.rm = TRUE),
     AvgOpenInterest = mean(Open.Interest, na.rm = TRUE),
     AvgOptVolume    = mean(Volume, na.rm = TRUE),
     .groups = "drop"                           # drop grouping afterwards
@@ -211,17 +211,29 @@ options_summary <- options_woPrice_filtered %>%
 
 print(options_summary)
 
+# Compute moneyness (S / K) of each option
+
+options_IV <- options_woPrice_filtered %>%
+  left_join(
+    stock_filter %>% select(Date, Ticker, Close),
+    by = c("Trade.Date" = "Date", "Stock.Ticker" = "Ticker")
+  ) %>%
+  filter(!is.na(Close)) %>%
+  mutate(
+    moneyness = Close / Strike
+  )
+
 
 # Implied Volatility Surfaces from observed option prices for all stocks
 
-plot_IV_surface <- function(options_data, tickers){
+plot_IV_surface <- function(options_data, tickers, nx = 50, ny = 50){
   
   
   for (ticker in tickers){
     
-    iter_data <- subset(options_data, Stock.Ticker == ticker)
+    #iter_data <- subset(options_data, Stock.Ticker == ticker)
     
-    
+    iter_data <- options_data %>% filter(Stock.Ticker == ticker)
     
     interpolate_grid <- akima::interp(
       
@@ -229,7 +241,9 @@ plot_IV_surface <- function(options_data, tickers){
       y = iter_data$TTM,
       z = iter_data$Avg.IV,
       duplicate = "mean", # if multiple points are at same point
-      linear = TRUE
+      linear = TRUE,
+      nx = nx,
+      ny = ny
     )
     
     plot_inputs <- plot_ly(
@@ -255,6 +269,7 @@ plot_IV_surface <- function(options_data, tickers){
 
 plot_IVs <- plot_IV_surface(options_woPrice_filtered, ticker_choices)
 
+#plot_IVs <- plot_IV_surface(options_IV, ticker_choices)
 
 
 # Model to back out the prices of the options data

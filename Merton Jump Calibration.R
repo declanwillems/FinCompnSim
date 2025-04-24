@@ -8,6 +8,8 @@ library("dplyr")
 library("stats")
 
 # Load data
+setwd("C:\\Users\\willed3\\OneDrive - Rensselaer Polytechnic Institute\\Documents\\Spring 2025\\Financial Computation & Simulation\\Project\\Data")
+
 stock_data <- read.csv("act_stocks.csv")
 option_w_prices <- read.csv("act_options_prices.csv")
 
