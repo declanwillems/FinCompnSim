@@ -137,8 +137,8 @@ BSM_call= function(S0,K,r,sigma,T){
   return(call_price)
 }
 
-euro_call_sim=function(S0,K,r,sigma,t,nsteps,M,seed=100){
-  set.seed(seed)
+euro_call_sim=function(S0,K,r,sigma,t,nsteps,M){
+  
   dt= t/nsteps
   Z= matrix(rnorm(M*nsteps),nrow=M,ncol=nsteps)
   ST= S0*exp((r-0.5*sigma^2)*t+sigma*sqrt(t)*Z)
@@ -151,14 +151,19 @@ euro_call_sim=function(S0,K,r,sigma,t,nsteps,M,seed=100){
   return(est_price)
 }
 
+set.seed(100)
+
 # Loop through strikes and store results for BSM
-for (i in 1:seq_along(as.numeric(nrow(option_chain_of_interest)))){
+
+# Now it loops through all the rows, not just the first
+# Changed seq_along to seq_len
+for (i in seq_len(nrow(option_chain_of_interest))){
   option_chain_of_interest$Euro.Price[i]= euro_call_sim(
     S0= 113.8711,
     K= option_chain_of_interest$Strike[i],
     r= 0.025,
     sigma= 0.3249201,
-    t= (option_chain_of_interest$TTM/30)/12,
+    t= (option_chain_of_interest$TTM)/252,
     nsteps=252,
     M= 10000
   )
