@@ -294,3 +294,26 @@ optimized_JD <- optim(
 )
 
 best_param <- optimized_JD$par
+print(best_param)
+
+model_vals <- mapply(
+  function(K, t) euro_call_JD(S0, K, r,
+                              best_param["sigma"],
+                              best_param["lambda"],
+                              best_param["mu_JD"],
+                              best_param["sigma_JD"],
+                              t, nsteps = 252, M = 10000),
+  K_vec, t_vec
+)
+
+compare_JD <- data.frame(
+  Strike = K_vec,
+  Market = market_price,
+  JD_Model = model_vals
+)
+
+compare_JD$Error <- compare_JD$JD_Model - compare_JD$Market
+
+MSE_JD <- mean(compare_JD$Error^2)
+
+print(MSE_JD)
