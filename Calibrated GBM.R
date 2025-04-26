@@ -111,7 +111,7 @@ option_chain_real= option_w_prices %>%
     Strike= Strike,
     Option.Price= Last.Trade.Price,
   ) %>%
-  select(Expiration,TTM,Strike,Option.Price)
+  select(Trade.Date, Expiration,TTM,Strike,Option.Price)
 
 target_date= as.Date("2021-01-08")
 
@@ -168,3 +168,129 @@ for (i in seq_len(nrow(option_chain_of_interest))){
     M= 10000
   )
 }
+
+
+# ------------------------------------------------------------------------------
+# Jump-Diffusion model 
+
+
+euro_call_JD <- function(S0, K, r, sigma, lambda, mu_JD, sigma_JD, t, nsteps, M){
+  
+  dt <- t / nsteps
+  
+  kappa <- exp(mu_JD + 0.5 * sigma_JD^2) - 1
+  
+  # Init matrix with prices
+  S <- rep(S0, M)
+  
+  for (j in seq_len(nsteps)){
+    
+    Z <- rnorm(M)
+    cont_factor <- exp((r - 0.5 * sigma^2 - lambda * kappa)* dt + sigma * sqrt(dt) * Z)
+    
+    N_jumps <- rpois(M, lambda * dt)
+    
+    Jump_factor <- rep(1, M)
+    
+    # See which paths has a jump
+    jump_count <- which(N_jumps > 1)
+    
+    for (i in jump_count){
+      
+      jump <- rnorm(N_jumps[i], mean = mu_JD, sd = sigma_JD)
+      
+      Jump_factor[i] <- prod(exp(jump))
+    }
+    
+    # Update spot price
+    
+    S <- S * cont_factor * Jump_factor
+    
+  }
+  
+  # Payoff and price
+  
+  payoff <- pmax(S - K, 0)
+  
+  opt_price <- mean(exp(-r * t) * payoff)
+  
+  return(opt_price)
+  
+}
+
+
+# Calibration function
+
+calibrate_JD <- function(params, S0, K_vec, t_vec, r, market_price){
+  
+  sigma <- params[1]
+  lambda <- params[2]
+  mu_JD <- params[3]
+  sigma_JD <- params[4]
+  
+  
+  sim_prices_JD <- mapply(
+    FUN = function(K, t){
+      euro_call_JD(S0, K, r, sigma, lambda, mu_JD, sigma_JD, t,
+                   nsteps = 252, M = 3000) # Attempt lower paths for ease of optimization
+    },
+    K = K_vec, t = t_vec
+  )
+  
+  
+  # MSE
+  
+  mse_JD <- mean((sim_prices_JD - market_price)^2)
+  
+  return(mse_JD)
+  
+}
+
+# Specific day to analyze, defined above in GBM section 
+# option_chain_of_interest
+
+
+# Reduce down to 1 trade date and 1 expr
+
+cal_date <- as.Date("2020-11-25")
+
+one_day_chain <- option_chain_real %>%
+  filter(
+    Expiration == target_date,
+    Trade.Date == cal_date
+  ) %>%
+  select(Strike, TTM, Market.Price = Option.Price)
+
+# Assuming this is close price of the day we are analyzing
+S0 <- 113.8711
+K_vec <- one_day_chain$Strike
+t_vec <- one_day_chain$TTM / 365
+market_price <- one_day_chain$Market.Price
+r <- 0.025
+
+# Initialize parameter guesses
+
+init_guess <- c(sigma = 0.3, lambda = 1, mu_JD = 0, sigma_JD = 0.2)
+
+lower_bound <- c(0.01, 0, -1, 0.01)
+upper_bound <- c(2, 10, 2, 1)
+
+
+set.seed(100)
+
+
+optimized_JD <- optim(
+  par = init_guess,
+  fn = calibrate_JD,
+  S0 = S0,
+  K_vec = K_vec,
+  t_vec = t_vec,
+  r = r,
+  market_price = market_price,
+  method = "L-BFGS-B", # quasi-Netweon solver that takes in upper and lower constr.
+  lower = lower_bound,
+  upper = upper_bound,
+  control = list(trace = 1, maxit = 50)
+)
+
+best_param <- optimized_JD$par
