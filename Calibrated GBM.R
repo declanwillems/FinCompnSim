@@ -10,7 +10,8 @@ library(plot3D)
 library(tidyr)
 
 # Load in cleaning file with project data
-setwd("C:/Users/jacob/OneDrive/Documents/~RPI QFRA/2025 Spring Semester/Financial Computation and Simulation/Project")
+#setwd("C:/Users/jacob/OneDrive/Documents/~RPI QFRA/2025 Spring Semester/Financial Computation and Simulation/Project")
+setwd("C:/Users/willed3/OneDrive - Rensselaer Polytechnic Institute/Documents/Spring 2025/Financial Computation & Simulation/Project/Repo/FinCompnSim")
 source("Project Data Cleaning.R")
 
 # Returns on single stock
