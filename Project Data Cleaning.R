@@ -11,7 +11,8 @@ library("plotly")
 library("akima")
 library("dplyr")
 
-setwd("C:/Users/jacob/OneDrive/Documents/~RPI QFRA/2025 Spring Semester/Financial Computation and Simulation/Project")
+#setwd("C:/Users/jacob/OneDrive/Documents/~RPI QFRA/2025 Spring Semester/Financial Computation and Simulation/Project")
+setwd("C:/Users/willed3/OneDrive - Rensselaer Polytechnic Institute/Documents/Spring 2025/Financial Computation & Simulation/Project/Data")
 
 stock_data <- read.csv("act_stocks.csv")
 

@@ -96,7 +96,7 @@ my.plot= ggplot(data,aes(x=x)) +
                  fill = "yellow",
                  alpha = 0.5) + 
   stat_function(fun = dnorm, args = list(mean = mu*dt, sd = sigma*sqrt(dt)))+
-  ggtitle("AEP Stock versus Simulated Data")
+  ggtitle("AAPL Stock versus Simulated Data")
 
 print(my.plot)
 
@@ -318,3 +318,172 @@ compare_JD$Error <- compare_JD$JD_Model - compare_JD$Market
 MSE_JD <- mean(compare_JD$Error^2)
 
 print(MSE_JD)
+
+# GBM Edits to stash
+
+# Skewness and Kurtosis for JD Model
+
+lambda <- best_param["lambda"]
+mu_JD <- best_param["mu_JD"]
+sigma_JD <- best_param["sigma_JD"]
+sigma <- best_param["sigma"]
+r <- 0.025      
+dt <- 1/252      
+
+# number of days to simulate
+n_days <- nrow(R) 
+
+# Initialize
+jd_returns <- numeric(n_days)
+
+# compute kappa once
+kappa <- exp(mu_JD + 0.5*sigma_JD^2) - 1
+
+# simulate each day’s return
+set.seed(100)  
+Z <- rnorm(n_days)
+N_jumps <- rpois(n_days, lambda * dt)
+
+for (i in seq_len(n_days)){
+  
+  # continuous diffusion factor
+  cont_fac <- exp((mu - 0.5*sigma^2 - lambda*kappa)*dt
+                  + sigma*sqrt(dt)*Z[i])
+  
+  # jump factor: if no jumps, = 1
+  if(N_jumps[i] > 0){
+    jumps <- rnorm(N_jumps[i], mean = mu_JD, sd = sigma_JD)
+    jump_fac <- prod(exp(jumps))
+  } else {
+    jump_fac  <- 1
+  }
+  
+  # log‐retur
+  jd_returns[i] <- log(cont_fac * jump_fac)
+}
+
+# Compute moments like JBM
+jd_stats <- data.frame(
+  mean = mean(jd_returns)/dt,
+  sd = sd(jd_returns)*sqrt(1/dt),
+  skew = moments::skewness(jd_returns),
+  kurt = moments::kurtosis(jd_returns)
+)
+print(jd_stats, digits=4)
+
+
+# ------------------------------------------------------------------------------
+# Save results for each ticker in a specific data frame so results do not get overwritten
+
+ticker <- "AAPL"
+
+results_df <- data.frame(
+  Date = R$Date,
+  raw_return = R$return,
+  gbm_return = stock_paths_R,
+  jd_return = jd_returns
+)
+
+stats_df <- data.frame(
+  Ticker = ticker,
+  mean_raw = mean(results_df$raw_return)/dt,
+  sd_raw = sd(results_df$raw_return)*sqrt(1/dt),
+  skew_raw = skewness(results_df$raw_return),
+  kurt_raw = kurtosis(results_df$raw_return),
+  mean_gbm = mean(results_df$gbm_return)/dt,
+  sd_gbm = sd(results_df$gbm_return)*sqrt(1/dt),
+  skew_gbm = skewness(results_df$gbm_return),
+  kurt_gbm = kurtosis(results_df$gbm_return),
+  mean_jd = mean(results_df$jd_return)/dt,
+  sd_jd = sd(results_df$jd_return)*sqrt(1/dt),
+  skew_jd = skewness(results_df$jd_return),
+  kurt_jd = kurtosis(results_df$jd_return)
+)
+
+assign(paste0(ticker, "_results_df"), results_df)
+assign(paste0(ticker, "_stats_df"),   stats_df)
+
+# ------------------------------------------------------------------------------
+# Sensitivity Analysis
+
+# Perform an analysis on the number of steps within the model and how it impacts MSE
+
+nsteps_grid <- round(seq(10, 500, length = 10))
+
+mse_by_steps <- sapply(nsteps_grid, function(ns){
+  # price each strike/time with euro_call_JD and fixed best_param
+  sim_prices <- mapply(function(K, t){
+    euro_call_JD(
+      S0 = S0,
+      K = K,
+      r = r,
+      sigma = sigma,
+      lambda = lambda,
+      mu_JD = mu_JD,
+      sigma_JD = sigma_JD,
+      t = t,
+      nsteps = ns,
+      M = 10000
+    )
+  }, K = K_vec, t = t_vec)
+  
+  mean((sim_prices - market_price)^2)
+})
+
+
+sens_df <- data.frame(
+  nsteps = nsteps_grid,
+  MSE = mse_by_steps
+)
+
+ggplot(sens_df, aes(x = nsteps, y = MSE)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "JD Pricing MSE vs. # of Simulation Steps",
+    x = "Number of time steps (nsteps)",
+    y = "Mean Squared Error"
+  ) +
+  theme_minimal()
+
+# Analyze sensitivity to sigma
+
+init_sigma <- sigma
+
+sigma_grid <- seq(0.8*init_sigma, 1.2*init_sigma, length = 10)
+
+mse_by_sigma <- sapply(sigma_grid, function(sig){
+  # price each strike/time with euro_call_JD and fixed best_param
+  sim_prices <- mapply(function(K, t){
+    euro_call_JD(
+      S0 = S0,
+      K = K,
+      r = r,
+      sigma = sig,
+      lambda = lambda,
+      mu_JD = mu_JD,
+      sigma_JD = sigma_JD,
+      t = t,
+      nsteps = 252,
+      M = 10000
+    )
+  }, K = K_vec, t = t_vec)
+  
+  mean((sim_prices - market_price)^2)
+})
+
+
+sens_df_sigma <- data.frame(
+  sigma_n = sigma_grid,
+  MSE = mse_by_sigma
+)
+
+ggplot(sens_df_sigma, aes(x = sigma_grid, y = MSE)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "JD Pricing MSE vs. Sigma",
+    x = "Sigma",
+    y = "Mean Squared Error"
+  ) +
+  theme_minimal()
